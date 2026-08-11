@@ -2,7 +2,7 @@
 
 Your project's memory file, maintained for you instead of by you.
 
-`memr` injects `.memory/project.md` into every Claude Code session, and at the end of a
+`memrato` injects `.memory/project.md` into every Claude Code session, and at the end of a
 session proposes what should be added to it. You review the proposals, accept the good
 ones, and commit the result. Your team's AI context gets reviewed like code, because it
 is code.
@@ -22,7 +22,7 @@ Or download a binary from [Releases](https://github.com/akhileshthakre/memrato/r
 
 ```bash
 cd your-project
-memr init
+memrato init
 ```
 
 That creates `.memory/project.md` and wires two hooks into `.claude/settings.json`.
@@ -31,7 +31,7 @@ Now start Claude Code and ask it what it knows about the project — it answers 
 Work for a while, quit, then:
 
 ```bash
-memr review
+memrato review
 ```
 
 ```
@@ -47,11 +47,11 @@ gets the context on their next session.
 
 | Command | What it does |
 |---|---|
-| `memr init` | Creates `.memory/`, wires the hooks, updates `.gitignore`. Idempotent. |
-| `memr inject` | Prints the memory files. Runs automatically on `SessionStart`. |
-| `memr distill` | Proposes additions from a transcript. Runs automatically on `SessionEnd`. |
-| `memr review` | Steps through proposals and applies the ones you accept. |
-| `memr status` | Shows what would be injected, from where, and how many tokens. |
+| `memrato init` | Creates `.memory/`, wires the hooks, updates `.gitignore`. Idempotent. |
+| `memrato inject` | Prints the memory files. Runs automatically on `SessionStart`. |
+| `memrato distill` | Proposes additions from a transcript. Runs automatically on `SessionEnd`. |
+| `memrato review` | Steps through proposals and applies the ones you accept. |
+| `memrato status` | Shows what would be injected, from where, and how many tokens. |
 
 ## Files
 
@@ -75,12 +75,12 @@ Injection order is `global.md`, `project.md`, `local.md` — most stable content
 Read these before you install. They are real, not hypothetical.
 
 - **Claude Code only.** It works because Claude Code has a hook system. Cursor, Codex CLI
-  and everything else are not supported yet. `memr inject | pbcopy` is the fallback.
+  and everything else are not supported yet. `memrato inject | pbcopy` is the fallback.
 - **Distillation costs one model call per session.** It runs on Haiku via your existing
   Claude Code auth (or `ANTHROPIC_API_KEY` if the `claude` binary is not on your PATH).
   Cheap, but not free, and it happens on every session end.
 - **The distiller proposes noise sometimes.** That is why nothing is ever written to
-  `project.md` automatically. Every entry passes through `memr review` and then through
+  `project.md` automatically. Every entry passes through `memrato review` and then through
   your normal commit review. Both gates are deliberate.
 - **The token budget is estimated, not tokenized.** 4 characters per token. Set
   `MEMR_BUDGET_TOKENS` to change the default of 4000. Over budget, the lowest-priority

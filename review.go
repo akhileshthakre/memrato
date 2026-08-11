@@ -37,7 +37,7 @@ func runReview(root string, stdin io.Reader, stdout io.Writer) error {
 	projectPath := filepath.Join(root, memDir, projectFile)
 	doc := read(projectPath)
 	if doc == "" {
-		return fmt.Errorf("%s is missing — run `memr init` first", projectPath)
+		return fmt.Errorf("%s is missing — run `memrato init` first", projectPath)
 	}
 
 	in := bufio.NewScanner(stdin)

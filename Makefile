@@ -1,4 +1,4 @@
-BINARY := memr
+BINARY := memrato
 
 .PHONY: build test lint install clean
 

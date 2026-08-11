@@ -3,8 +3,8 @@ version: 2
 project_name: memrato
 
 builds:
-  - id: memr
-    binary: memr
+  - id: memrato
+    binary: memrato
     main: .
     env: [CGO_ENABLED=0]
     goos: [darwin, linux, windows]

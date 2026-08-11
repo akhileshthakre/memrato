@@ -21,15 +21,15 @@ func TestInitSettings(t *testing.T) {
 			name: "fresh repo",
 			check: func(t *testing.T, root, _ string) {
 				s := readSettings(t, root)
-				assertHook(t, s, "SessionStart", "memr inject")
-				assertHook(t, s, "SessionEnd", "memr distill")
+				assertHook(t, s, "SessionStart", "memrato inject")
+				assertHook(t, s, "SessionEnd", "memrato distill")
 			},
 		},
 		{
 			name:     "blank settings file",
 			settings: "   \n",
 			check: func(t *testing.T, root, _ string) {
-				assertHook(t, readSettings(t, root), "SessionStart", "memr inject")
+				assertHook(t, readSettings(t, root), "SessionStart", "memrato inject")
 			},
 		},
 		{
@@ -58,7 +58,7 @@ func TestInitSettings(t *testing.T) {
 					t.Errorf("SessionStart entries = %d, want 2 (theirs + ours)", n)
 				}
 				assertHook(t, s, "SessionStart", "echo hi")
-				assertHook(t, s, "SessionStart", "memr inject")
+				assertHook(t, s, "SessionStart", "memrato inject")
 			},
 		},
 		{

@@ -27,11 +27,11 @@ const localTemplate = `# Local memory
 Personal notes about this repo. Gitignored — never shared with the team.
 `
 
-// hookWiring is the set of hooks memr installs. Matcher is omitted so the hook
+// hookWiring is the set of hooks memrato installs. Matcher is omitted so the hook
 // fires for every source/reason (startup, resume, clear, compact, fork).
 var hookWiring = []struct{ event, command string }{
-	{"SessionStart", "memr inject"},
-	{"SessionEnd", "memr distill"},
+	{"SessionStart", "memrato inject"},
+	{"SessionEnd", "memrato distill"},
 }
 
 func runInit(root string) error {
@@ -70,7 +70,7 @@ func runInit(root string) error {
 		fmt.Println("hooks already wired in", settingsPath)
 	}
 	fmt.Println("memory initialised in", dir)
-	fmt.Println("\nNext: make sure `memr` is on your PATH, then start Claude Code and ask what it knows about this project.")
+	fmt.Println("\nNext: make sure `memrato` is on your PATH, then start Claude Code and ask what it knows about this project.")
 	return nil
 }
 

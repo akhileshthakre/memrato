@@ -235,7 +235,7 @@ func parseModelJSON(raw string) []proposal {
 	return keep
 }
 
-const proposedHeader = "# Proposed memory additions\n\nRun `memr review` to accept or discard. Nothing here is in project.md yet.\n"
+const proposedHeader = "# Proposed memory additions\n\nRun `memrato review` to accept or discard. Nothing here is in project.md yet.\n"
 
 // appendProposals adds to the pending list rather than replacing it, so a run
 // of unreviewed sessions does not silently drop earlier findings. Deduped on

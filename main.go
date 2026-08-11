@@ -1,4 +1,4 @@
-// Command memr keeps a project's memory file accurate over time: it injects
+// Command memrato keeps a project's memory file accurate over time: it injects
 // .memory/*.md at session start and proposes edits at session end.
 package main
 
@@ -49,15 +49,15 @@ func main() {
 	case "-h", "--help", "help":
 		usage()
 	case "-v", "--version", "version":
-		fmt.Println("memr", version)
+		fmt.Println("memrato", version)
 	default:
-		fmt.Fprintf(os.Stderr, "memr: unknown command %q\n\n", os.Args[1])
+		fmt.Fprintf(os.Stderr, "memrato: unknown command %q\n\n", os.Args[1])
 		usage()
 		os.Exit(2)
 	}
 
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "memr:", err)
+		fmt.Fprintln(os.Stderr, "memrato:", err)
 		os.Exit(1)
 	}
 }
@@ -65,13 +65,13 @@ func main() {
 var version = "dev" // overridden at release time via -ldflags
 
 func usage() {
-	fmt.Fprint(os.Stderr, `memr — auto-maintained project memory
+	fmt.Fprint(os.Stderr, `memrato — auto-maintained project memory
 
-  memr init      scaffold .memory/ and wire the Claude Code hooks
-  memr inject    print the memory files (used by the SessionStart hook)
-  memr distill   propose additions from a transcript (SessionEnd hook)
-  memr review    step through proposals and apply the good ones
-  memr status    show what would be injected, from where, and how big
+  memrato init      scaffold .memory/ and wire the Claude Code hooks
+  memrato inject    print the memory files (used by the SessionStart hook)
+  memrato distill   propose additions from a transcript (SessionEnd hook)
+  memrato review    step through proposals and apply the good ones
+  memrato status    show what would be injected, from where, and how big
 `)
 }
 
@@ -126,7 +126,7 @@ func runInject(root string, stdout, stderr io.Writer) error {
 	}
 
 	if trimToBudget(bodies, budgetChars()) {
-		fmt.Fprintf(stderr, "memr: memory exceeded %d-token budget; trimmed lowest-priority sections\n", budgetChars()/charsPerToken)
+		fmt.Fprintf(stderr, "memrato: memory exceeded %d-token budget; trimmed lowest-priority sections\n", budgetChars()/charsPerToken)
 	}
 
 	out := render(srcs, bodies)
@@ -144,7 +144,7 @@ func render(srcs []source, bodies []string) string {
 			continue
 		}
 		if b.Len() == 0 {
-			b.WriteString("# Project memory (managed by memr)\n\n")
+			b.WriteString("# Project memory (managed by memrato)\n\n")
 		}
 		fmt.Fprintf(&b, "<!-- %s: %s -->\n%s\n\n", s.label, s.path, bodies[i])
 	}
@@ -220,7 +220,7 @@ func runStatus(root string, stdout io.Writer) error {
 
 	if p := filepath.Join(root, memDir, proposedFile); fileExists(p) {
 		if n := len(parseProposals(read(p))); n > 0 {
-			fmt.Fprintf(stdout, "\n%d proposal(s) pending. Run `memr review`.\n", n)
+			fmt.Fprintf(stdout, "\n%d proposal(s) pending. Run `memrato review`.\n", n)
 		}
 	}
 	return nil
