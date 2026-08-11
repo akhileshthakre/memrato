@@ -1,4 +1,6 @@
 /memrato
 /dist/
+/npm-dist/
+node_modules/
 .memory/local.md
 .memory/proposed.md

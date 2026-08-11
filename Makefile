@@ -1,6 +1,6 @@
 BINARY := memrato
 
-.PHONY: build test lint install clean
+.PHONY: build test lint install npm clean
 
 build:
 	go build -o $(BINARY) .
@@ -16,6 +16,9 @@ lint:
 install:
 	go install .
 
+npm:
+	node scripts/build-npm.mjs $(VERSION)
+
 clean:
 	rm -f $(BINARY)
-	rm -rf dist/
+	rm -rf dist/ npm-dist/

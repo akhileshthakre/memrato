@@ -33,6 +33,10 @@ One file per command, all `package main` at the repo root.
 | `distill.go` | Transcript parsing, the distiller prompt, the model call |
 | `review.go` | Proposal parsing and applying entries to `project.md` |
 
+npm distribution lives outside the Go code: `npm/bin/memrato.js` is the launcher shim and
+`scripts/build-npm.mjs` generates all seven packages into `npm-dist/`. Nothing under
+`npm-dist/` is committed.
+
 ## Gotchas
 
 - **`distill` shells out to `claude`, which fires `SessionEnd`, which runs `distill`.**
@@ -43,6 +47,16 @@ One file per command, all `package main` at the repo root.
 - **`settings.json` is parsed before anything is written.** If it is malformed, `init`
   must fail having changed nothing on disk — the ordering in `runInit` is load-bearing.
   It is parsed into `map[string]any` so unknown keys survive the round trip.
+- **node and Go disagree on platform names.** node says `win32`/`x64`, Go says
+  `windows`/`amd64`. The mapping table in `scripts/build-npm.mjs` is the only place that
+  knows both; package names use the *node* spelling because that is what
+  `process.platform`/`process.arch` produce at runtime in the shim.
+- **Publish platform packages before the root package.** The root lists them as
+  `optionalDependencies`; publishing it first leaves a window where `npm i -g memrato`
+  installs a shim with no binary behind it.
+- **The shim must use `stdio: "inherit"`.** `inject` writes to stdout for Claude Code to
+  capture, `distill` reads the hook payload on stdin, and `review` is interactive. Piping
+  instead of inheriting breaks all three.
 - **Never commit a real transcript to `testdata/`.** They contain absolute paths,
   environment variables and, in at least one observed case, live API keys. Fixtures are
   written by hand.

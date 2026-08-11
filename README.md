@@ -13,10 +13,47 @@ Code hooks and a 300 KB binary.
 ## Install
 
 ```bash
+npm install -g memrato
+```
+
+That's it — no Go toolchain, no `PATH` setup. npm ships a prebuilt binary for your
+platform (~6 MB, and only yours) and puts `memrato` on your `PATH` where the hooks can
+find it.
+
+Try it without installing anything:
+
+```bash
+npx memrato init
+```
+
+> Use `npx` to *try* it, never in a hook. `npx` re-resolves the package on every
+> invocation, which would add seconds to every session start. Hooks need the global
+> install.
+
+<details>
+<summary>Other ways to install</summary>
+
+**Go:**
+
+```bash
 go install github.com/akhileshthakre/memrato@latest
 ```
 
-Or download a binary from [Releases](https://github.com/akhileshthakre/memrato/releases).
+This writes to `$(go env GOPATH)/bin`, which is **not** on `PATH` by default — and hooks
+run in a non-interactive shell, so `~/.zshrc` is not enough. Put it somewhere every shell
+sees:
+
+```bash
+echo 'export PATH="$HOME/go/bin:$PATH"' >> ~/.zshenv
+```
+
+**Binaries:** [Releases](https://github.com/akhileshthakre/memrato/releases) — darwin,
+linux and windows on amd64 and arm64.
+
+</details>
+
+Verify with `memrato --version` in a new terminal. If that prints nothing, the hooks will
+not find it either.
 
 ## 30-second demo
 
@@ -82,6 +119,10 @@ Read these before you install. They are real, not hypothetical.
 - **The distiller proposes noise sometimes.** That is why nothing is ever written to
   `project.md` automatically. Every entry passes through `memrato review` and then through
   your normal commit review. Both gates are deliberate.
+- **The npm install adds ~70 ms to session start.** `memrato` is a Node shim that execs
+  the real Go binary, and Node's startup floor is ~60 ms. Measured, not guessed. Once per
+  session, so you will not notice it — but if you want the ~0 ms path, install with Go and
+  skip the shim.
 - **The token budget is estimated, not tokenized.** 4 characters per token. Set
   `MEMR_BUDGET_TOKENS` to change the default of 4000. Over budget, the lowest-priority
   file is trimmed last-section-first.

@@ -8,7 +8,7 @@ permissions:
   contents: write
 
 jobs:
-  release:
+  github-release:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -22,3 +22,38 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  npm-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # required by npm --provenance
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Build all platform packages
+        run: node scripts/build-npm.mjs ${{ github.ref_name }}
+
+      # Platform packages first: the root package lists them as
+      # optionalDependencies, so publishing it first leaves a window where
+      # `npm i -g memrato` installs a shim with no binary behind it.
+      - name: Publish platform packages
+        run: |
+          for pkg in npm-dist/memrato-*; do
+            echo "publishing $pkg"
+            npm publish "$pkg" --access public --provenance
+          done
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish root package
+        run: npm publish npm-dist/memrato --access public --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
