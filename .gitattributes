@@ -1,0 +1,4 @@
+# Force LF everywhere: Windows checkouts otherwise get CRLF and the
+# testdata golden comparison in distill_test.go fails.
+* text=auto eol=lf
+*.exe binary

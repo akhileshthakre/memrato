@@ -51,6 +51,11 @@ npm distribution lives outside the Go code: `npm/bin/memrato.js` is the launcher
   `windows`/`amd64`. The mapping table in `scripts/build-npm.mjs` is the only place that
   knows both; package names use the *node* spelling because that is what
   `process.platform`/`process.arch` produce at runtime in the shim.
+- **`npm publish` needs a `./` prefix on the directory.** `npm publish npm-dist/foo-bar`
+  matches npm's `<user>/<repo>` GitHub shorthand and npm tries to clone
+  `github.com/npm-dist/foo-bar` instead of reading the folder. `./npm-dist/foo-bar` works.
+- **`.gitattributes` forces LF.** Without it, Windows checkouts get CRLF and the
+  `testdata/` golden comparison in `distill_test.go` fails there and nowhere else.
 - **Publish platform packages before the root package.** The root lists them as
   `optionalDependencies`; publishing it first leaves a window where `npm i -g memrato`
   installs a shim with no binary behind it.
