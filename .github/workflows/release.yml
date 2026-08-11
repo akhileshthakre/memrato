@@ -44,6 +44,18 @@ jobs:
       # Platform packages first: the root package lists them as
       # optionalDependencies, so publishing it first leaves a window where
       # `npm i -g memrato` installs a shim with no binary behind it.
+      # Catches an empty or invalid token. It cannot catch a token that lacks 2FA
+      # bypass — whoami succeeds with one of those and only publish fails.
+      - name: Check npm auth
+        run: |
+          if [ -z "$NODE_AUTH_TOKEN" ]; then
+            echo "::error::NPM_TOKEN secret is empty or not set on this repository."
+            exit 1
+          fi
+          echo "authenticated to npm as: $(npm whoami)"
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
       # The ./ prefix is load-bearing. `npm publish npm-dist/memrato-darwin-arm64`
       # matches npm's <user>/<repo> GitHub shorthand, so npm tries to clone
       # github.com/npm-dist/memrato-darwin-arm64 instead of reading the directory.
@@ -51,7 +63,10 @@ jobs:
         run: |
           for pkg in ./npm-dist/memrato-*; do
             echo "publishing $pkg"
-            npm publish "$pkg" --access public --provenance
+            if ! npm publish "$pkg" --access public --provenance; then
+              echo "::error::publish failed. On E403 mentioning two-factor auth, NPM_TOKEN must be a Granular Access Token with 'Bypass 2FA' enabled (or a classic Automation token). A plain Publish token cannot publish from CI."
+              exit 1
+            fi
           done
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
