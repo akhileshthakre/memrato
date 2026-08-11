@@ -1,0 +1,8 @@
+user: Why is the staging container exiting immediately?
+
+assistant: Found it. The binary is dynamically linked against glibc but the image is Alpine, which ships musl. The fix is CGO_ENABLED=0 in the build step.
+
+user: Fixed. Let's always build static for containers.
+
+assistant: Set CGO_ENABLED=0 in the Dockerfile build stage. Every container image in this repo now builds a static binary.
+
