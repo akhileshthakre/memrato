@@ -26,7 +26,80 @@ func parseProposals(doc string) []proposal {
 	return out
 }
 
-func runReview(root string, stdin io.Reader, stdout io.Writer) error {
+// Words too common to signal that two entries are about the same thing.
+var stopwords = map[string]bool{
+	"a": true, "an": true, "and": true, "are": true, "as": true, "at": true, "be": true,
+	"for": true, "in": true, "is": true, "it": true, "of": true, "on": true, "or": true,
+	"that": true, "the": true, "this": true, "to": true, "we": true, "with": true,
+}
+
+func words(s string) map[string]bool {
+	out := map[string]bool{}
+	for _, w := range strings.FieldsFunc(strings.ToLower(s), func(r rune) bool {
+		return !('a' <= r && r <= 'z' || '0' <= r && r <= '9' || r == '.' || r == '-')
+	}) {
+		if !stopwords[w] {
+			out[w] = true
+		}
+	}
+	return out
+}
+
+// overlap is the overlap coefficient — shared words over the smaller set. It
+// beats Jaccard here because a terse existing entry and a wordy proposal about
+// the same fact should still register as a conflict.
+//
+// ponytail: word overlap, not embeddings. It only has to be good enough to make
+// a human look; it never decides anything.
+func overlap(a, b string) float64 {
+	wa, wb := words(a), words(b)
+	if len(wa) == 0 || len(wb) == 0 {
+		return 0
+	}
+	shared := 0
+	for w := range wa {
+		if wb[w] {
+			shared++
+		}
+	}
+	if shared < 2 { // one word in common is a coincidence, not a conflict
+		return 0
+	}
+	return float64(shared) / float64(min(len(wa), len(wb)))
+}
+
+const conflictThreshold = 0.6
+
+// sectionEntries maps each "## Section" to its "- entry" lines.
+func sectionEntries(doc string) map[string][]string {
+	out := map[string][]string{}
+	section := ""
+	for _, line := range strings.Split(doc, "\n") {
+		t := strings.TrimSpace(line)
+		if strings.HasPrefix(t, "## ") {
+			section = strings.TrimSpace(t[3:])
+		} else if strings.HasPrefix(t, "- ") && section != "" {
+			out[section] = append(out[section], strings.TrimSpace(t[2:]))
+		}
+	}
+	return out
+}
+
+// conflicts returns existing entries in the same section that look like they
+// state the same fact. Surfaced to the human, never resolved automatically:
+// two people distilling contradicting facts is exactly the case where guessing
+// is worse than asking.
+func conflicts(doc string, p proposal) []string {
+	var out []string
+	for _, existing := range sectionEntries(doc)[p.Section] {
+		if overlap(existing, p.Text) >= conflictThreshold {
+			out = append(out, existing)
+		}
+	}
+	return out
+}
+
+func runReview(root string, stdin io.Reader, stdout io.Writer, asPR bool) error {
 	proposedPath := filepath.Join(root, memDir, proposedFile)
 	pending := parseProposals(read(proposedPath))
 	if len(pending) == 0 {
@@ -45,6 +118,9 @@ func runReview(root string, stdin io.Reader, stdout io.Writer) error {
 loop:
 	for i, p := range pending {
 		fmt.Fprintf(stdout, "\n[%d/%d] %s (confidence %.2f)\n  %s\n", i+1, len(pending), p.Section, p.Confidence, p.Text)
+		for _, c := range conflicts(doc, p) {
+			fmt.Fprintf(stdout, "  ! may conflict with an existing entry:\n      %s\n", c)
+		}
 		fmt.Fprint(stdout, "  [y]es / [n]o / [e]dit / [q]uit: ")
 
 		if !in.Scan() {
@@ -85,9 +161,13 @@ loop:
 
 	fmt.Fprintf(stdout, "\nApplied %d, discarded %d, left %d pending.\n",
 		len(accepted), len(pending)-len(accepted)-len(remaining), len(remaining))
-	if len(accepted) > 0 {
-		fmt.Fprintln(stdout, "Review the diff and commit", projectPath)
+	if len(accepted) == 0 {
+		return nil
 	}
+	if asPR {
+		return openPR(root, len(accepted), stdout)
+	}
+	fmt.Fprintln(stdout, "Review the diff and commit", projectPath)
 	return nil
 }
 

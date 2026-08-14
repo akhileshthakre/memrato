@@ -43,9 +43,13 @@ func main() {
 		// Never returns an error: a broken distiller must not break the session.
 		runDistill(os.Stdin)
 	case "review":
-		err = runReview(".", os.Stdin, os.Stdout)
+		err = runReview(".", os.Stdin, os.Stdout, hasFlag("--pr"))
 	case "status":
-		err = runStatus(".", os.Stdout)
+		if hasFlag("--blame") {
+			err = runBlame(".", os.Stdout)
+		} else {
+			err = runStatus(".", os.Stdout)
+		}
 	case "-h", "--help", "help":
 		usage()
 	case "-v", "--version", "version":
@@ -64,6 +68,17 @@ func main() {
 
 var version = "dev" // overridden at release time via -ldflags
 
+// hasFlag keeps the whole CLI at one switch statement. Two boolean flags do not
+// justify a flag.FlagSet per subcommand, let alone a routing library.
+func hasFlag(name string) bool {
+	for _, a := range os.Args[2:] {
+		if a == name {
+			return true
+		}
+	}
+	return false
+}
+
 func usage() {
 	fmt.Fprint(os.Stderr, `memrato — auto-maintained project memory
 
@@ -72,6 +87,9 @@ func usage() {
   memrato distill   propose additions from a transcript (SessionEnd hook)
   memrato review    step through proposals and apply the good ones
   memrato status    show what would be injected, from where, and how big
+
+  --pr      (review) open a pull request instead of writing to your branch
+  --blame   (status) show who added each entry, when, and what has gone stale
 `)
 }
 
@@ -210,7 +228,7 @@ func runStatus(root string, stdout io.Writer) error {
 		} else if s.path != "" && fileExists(s.path) {
 			state = "empty"
 		}
-		fmt.Fprintf(stdout, "  %-8s %-8s %s\n", s.label, state, s.path)
+		fmt.Fprintf(stdout, "  %-8s %-11s %s\n", s.label, state, s.path)
 	}
 	fmt.Fprintf(stdout, "\nTotal: ~%d of %d tokens", sum/charsPerToken, budget/charsPerToken)
 	if sum > budget {

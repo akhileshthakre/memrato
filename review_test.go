@@ -69,7 +69,7 @@ func TestReviewAcceptRejectEdit(t *testing.T) {
 	root := setupReview(t)
 	var out bytes.Buffer
 	// accept, reject, edit
-	if err := runReview(root, strings.NewReader("y\nn\ne\nValkey for queues\n"), &out); err != nil {
+	if err := runReview(root, strings.NewReader("y\nn\ne\nValkey for queues\n"), &out, false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -91,7 +91,7 @@ func TestReviewAcceptRejectEdit(t *testing.T) {
 func TestReviewQuitLeavesTheRestPending(t *testing.T) {
 	root := setupReview(t)
 	var out bytes.Buffer
-	if err := runReview(root, strings.NewReader("y\nq\n"), &out); err != nil {
+	if err := runReview(root, strings.NewReader("y\nq\n"), &out, false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -110,7 +110,7 @@ func TestReviewQuitLeavesTheRestPending(t *testing.T) {
 func TestReviewEofLeavesEverythingPending(t *testing.T) {
 	root := setupReview(t)
 	var out bytes.Buffer
-	if err := runReview(root, strings.NewReader(""), &out); err != nil {
+	if err := runReview(root, strings.NewReader(""), &out, false); err != nil {
 		t.Fatal(err)
 	}
 	if n := len(parseProposals(mustRead(t, filepath.Join(root, memDir, proposedFile)))); n != 3 {
@@ -121,7 +121,7 @@ func TestReviewEofLeavesEverythingPending(t *testing.T) {
 func TestReviewWithNothingPending(t *testing.T) {
 	root := t.TempDir()
 	var out bytes.Buffer
-	if err := runReview(root, strings.NewReader(""), &out); err != nil {
+	if err := runReview(root, strings.NewReader(""), &out, false); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(out.String(), "Nothing to review") {
