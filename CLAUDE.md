@@ -31,11 +31,16 @@ One file per command, all `package main` at the repo root.
 | `main.go` | Routing, the memory sources, `inject`, `status`, budget trimming |
 | `init.go` | Scaffolding and the `.claude/settings.json` merge |
 | `distill.go` | Transcript parsing, the distiller prompt, the model call |
-| `review.go` | Proposal parsing and applying entries to `project.md` |
+| `review.go` | Proposal parsing, conflict detection, applying entries to `project.md` |
+| `blame.go` | `status --blame`: attribution and staleness, parsed out of `git blame` |
+| `pr.go` | `review --pr`: branch, commit, push, open the PR |
 
 npm distribution lives outside the Go code: `npm/bin/memrato.js` is the launcher shim and
 `scripts/build-npm.mjs` generates all seven packages into `npm-dist/`. Nothing under
 `npm-dist/` is committed.
+
+Releasing is `git tag vX.Y.Z && git push --tags`; the workflow builds and publishes.
+To do it by hand, `make npm VERSION=vX.Y.Z` and run the commands it prints, in order.
 
 ## Gotchas
 
@@ -51,6 +56,14 @@ npm distribution lives outside the Go code: `npm/bin/memrato.js` is the launcher
   `windows`/`amd64`. The mapping table in `scripts/build-npm.mjs` is the only place that
   knows both; package names use the *node* spelling because that is what
   `process.platform`/`process.arch` produce at runtime in the shim.
+- **Attribution and staleness are not stored in the file.** `project.md` is one fact per
+  line precisely so `git blame` can answer both. Do not add timestamp or author syntax to
+  entries — it would duplicate what git already knows and immediately drift.
+- **`--pr` commits with a pathspec** (`git commit -- .memory/project.md`) so a user's
+  unrelated work in progress never gets swept into the PR. It also must not assume the
+  remote is called `origin`.
+- **Conflict detection surfaces, never resolves.** Word overlap, no embeddings. Two people
+  distilling contradicting facts is the case where guessing is worse than asking.
 - **`npm publish` needs a `./` prefix on the directory.** `npm publish npm-dist/foo-bar`
   matches npm's `<user>/<repo>` GitHub shorthand and npm tries to clone
   `github.com/npm-dist/foo-bar` instead of reading the folder. `./npm-dist/foo-bar` works.
@@ -59,6 +72,12 @@ npm distribution lives outside the Go code: `npm/bin/memrato.js` is the launcher
 - **Publish platform packages before the root package.** The root lists them as
   `optionalDependencies`; publishing it first leaves a window where `npm i -g memrato`
   installs a shim with no binary behind it.
+- **A prerelease version needs `--tag`.** npm refuses to publish anything with a `-` in
+  the version (`0.0.0-dev`, `v1.0.0-rc.1`) unless a dist-tag is given, or it would move
+  `latest` to a prerelease. Both `build-npm.mjs` and the release workflow derive it.
+- **Hooks run in a non-interactive shell**, so `memrato` being on an interactive `PATH`
+  proves nothing. `checkPath` in `init.go` is what stops a user wiring hooks that
+  silently never fire — the failure that reads as "I installed it and nothing happened".
 - **The shim must use `stdio: "inherit"`.** `inject` writes to stdout for Claude Code to
   capture, `distill` reads the hook payload on stdin, and `review` is interactive. Piping
   instead of inheriting breaks all three.
