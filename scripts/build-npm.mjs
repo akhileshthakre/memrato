@@ -102,7 +102,14 @@ writeFileSync(
   ) + "\n"
 );
 
+// The ./ prefix is load-bearing. `npm publish npm-dist/memrato-darwin-arm64`
+// matches npm's <user>/<repo> GitHub shorthand, so npm tries to clone
+// github.com/npm-dist/memrato-darwin-arm64 instead of reading the directory.
+// And npm refuses to publish a prerelease version without an explicit --tag,
+// which the default 0.0.0-dev is.
+const tag = version.includes("-") ? " --tag next" : "";
+
 console.log(`\nBuilt ${targets.length + 1} packages at version ${version} in npm-dist/`);
 console.log("Publish platform packages first, then the root:");
-for (const name of Object.keys(optionalDependencies)) console.log(`  npm publish npm-dist/${name} --access public`);
-console.log("  npm publish npm-dist/memrato --access public");
+for (const name of Object.keys(optionalDependencies)) console.log(`  npm publish ./npm-dist/${name} --access public${tag}`);
+console.log(`  npm publish ./npm-dist/memrato --access public${tag}`);

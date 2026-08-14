@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -191,5 +192,31 @@ func mkdir(t *testing.T, path string) {
 	t.Helper()
 	if err := os.MkdirAll(path, 0o755); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// The hooks run in a non-interactive shell, so wiring them without memrato on
+// PATH produces a project where nothing ever fires and nothing ever says why.
+func TestCheckPath(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("PATH", dir)
+
+	var out strings.Builder
+	checkPath(&out)
+	if !strings.Contains(out.String(), "WARNING") {
+		t.Errorf("an unreachable %s should warn, got: %s", hookBinary, out.String())
+	}
+
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod +x is not how Windows decides what is executable")
+	}
+	if err := os.WriteFile(filepath.Join(dir, hookBinary), []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	out.Reset()
+	checkPath(&out)
+	if strings.Contains(out.String(), "WARNING") {
+		t.Errorf("a reachable %s should not warn, got: %s", hookBinary, out.String())
 	}
 }

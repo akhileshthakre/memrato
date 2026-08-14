@@ -3,7 +3,9 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 )
@@ -27,11 +29,15 @@ const localTemplate = `# Local memory
 Personal notes about this repo. Gitignored — never shared with the team.
 `
 
+// hookBinary is the command name the hooks invoke. Defined once so the wiring
+// below and the PATH check in checkPath can never drift apart.
+const hookBinary = "memrato"
+
 // hookWiring is the set of hooks memrato installs. Matcher is omitted so the hook
 // fires for every source/reason (startup, resume, clear, compact, fork).
 var hookWiring = []struct{ event, command string }{
-	{"SessionStart", "memrato inject"},
-	{"SessionEnd", "memrato distill"},
+	{"SessionStart", hookBinary + " inject"},
+	{"SessionEnd", hookBinary + " distill"},
 }
 
 func runInit(root string) error {
@@ -70,8 +76,35 @@ func runInit(root string) error {
 		fmt.Println("hooks already wired in", settingsPath)
 	}
 	fmt.Println("memory initialised in", dir)
-	fmt.Println("\nNext: make sure `memrato` is on your PATH, then start Claude Code and ask what it knows about this project.")
+	checkPath(os.Stdout)
 	return nil
+}
+
+// checkPath verifies that the command just wired into settings.json can
+// actually be found. Hooks run in a non-interactive shell, so a memrato that
+// exists only on an interactive PATH — or only as ./memrato, or via npx —
+// leaves the user with hooks that silently never fire. That is the failure
+// mode that looks like "I installed it and nothing happened", so init checks
+// it rather than telling the user to.
+func checkPath(stdout io.Writer) {
+	if _, err := exec.LookPath(hookBinary); err == nil {
+		fmt.Fprintln(stdout, "\nNext: start Claude Code and ask what it knows about this project.")
+		return
+	}
+	self, err := os.Executable()
+	if err != nil {
+		self = "the binary you just ran"
+	}
+	fmt.Fprintf(stdout, `
+WARNING: %q is not on your PATH, so the hooks just wired will never fire.
+You ran %s, but the hooks run %q in a non-interactive shell.
+
+Fix it with either:
+  npm install -g memrato
+  echo 'export PATH="$HOME/go/bin:$PATH"' >> ~/.zshenv    # if you used go install
+
+Then re-run `+"`memrato init`"+` to confirm.
+`, hookBinary, self, hookBinary)
 }
 
 // seed writes content only if the file is absent or empty. Never clobbers.
