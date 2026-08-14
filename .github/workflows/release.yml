@@ -68,12 +68,24 @@ jobs:
             *)   echo "NPM_TAG=" >> "$GITHUB_ENV" ;;
           esac
 
+      # Publishing seven packages is seven chances to fail, and npm never lets a
+      # version be reused — so a run that dies partway burns the tag for
+      # everything it already pushed. v0.1.2 died on the fifth package and left
+      # four platform packages published and no root package at all, which is
+      # why `npm i -g memrato` 404s. Skipping what is already on the registry
+      # makes re-running the same tag finish the release instead of forcing a
+      # version bump.
       - name: Publish platform packages
         run: |
           for pkg in ./npm-dist/memrato-*; do
-            echo "publishing $pkg"
+            spec="$(node -p "const p=require('$pkg/package.json'); p.name+'@'+p.version")"
+            if [ -n "$(npm view "$spec" version 2>/dev/null)" ]; then
+              echo "$spec is already published, skipping"
+              continue
+            fi
+            echo "publishing $spec"
             if ! npm publish "$pkg" --access public --provenance $NPM_TAG; then
-              echo "::error::publish failed. On E403 mentioning two-factor auth, NPM_TOKEN must be a Granular Access Token with 'Bypass 2FA' enabled (or a classic Automation token). A plain Publish token cannot publish from CI."
+              echo "::error::publish failed. On E403 mentioning two-factor auth, NPM_TOKEN must be a Granular Access Token with 'Bypass 2FA' enabled (or a classic Automation token). A plain Publish token cannot publish from CI. Re-running this workflow is safe: it skips whatever already published."
               exit 1
             fi
           done
@@ -81,6 +93,12 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Publish root package
-        run: npm publish ./npm-dist/memrato --access public --provenance $NPM_TAG
+        run: |
+          spec="$(node -p "const p=require('./npm-dist/memrato/package.json'); p.name+'@'+p.version")"
+          if [ -n "$(npm view "$spec" version 2>/dev/null)" ]; then
+            echo "$spec is already published, nothing to do"
+            exit 0
+          fi
+          npm publish ./npm-dist/memrato --access public --provenance $NPM_TAG
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
