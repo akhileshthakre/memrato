@@ -46,11 +46,6 @@ much less urgent by then, and that is the point.
   a docs-only release stops republishing six binaries that differ only in the version
   string they report. Cost today is bandwidth, not correctness.
 
-**Freeze was not held.** `status --blame`, `review --pr`, conflict detection and the
-`init` PATH check all shipped between 2026-08-12 and 2026-08-16, in a phase whose first
-rule was to build nothing. Noted so the 2026-09-11 decision is made knowing the tool was
-moving underneath its own trial.
-
 ## Shipped
 
 Not a changelog — only what changes how the loop gets dogfooded.
