@@ -12,7 +12,10 @@
 const { spawnSync } = require("child_process");
 const path = require("path");
 
-const pkg = `memrato-${process.platform}-${process.arch}`;
+// Scoped because npm's spam heuristic refuses to create the unscoped
+// `memrato-win32-arm64` in the global namespace. Must stay in lockstep with the
+// `scope` constant in scripts/build-npm.mjs.
+const pkg = `@akhileshthakre/memrato-${process.platform}-${process.arch}`;
 const exe = process.platform === "win32" ? "memrato.exe" : "memrato";
 
 let binary;

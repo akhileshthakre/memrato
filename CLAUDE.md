@@ -56,6 +56,12 @@ To do it by hand, `make npm VERSION=vX.Y.Z` and run the commands it prints, in o
   `windows`/`amd64`. The mapping table in `scripts/build-npm.mjs` is the only place that
   knows both; package names use the *node* spelling because that is what
   `process.platform`/`process.arch` produce at runtime in the shim.
+- **The platform packages are scoped, the root package is not.** npm's typosquatting
+  heuristic refuses to create unscoped `memrato-win32-arm64` — E403 "Package name
+  triggered spam detection". The darwin and linux names were accepted; win32 was not.
+  Scoped names are exempt, so they ship as `@akhileshthakre/memrato-<platform>-<arch>`.
+  The `scope` constant in `build-npm.mjs` and the `pkg` string in `npm/bin/memrato.js`
+  must stay in lockstep, or the shim resolves a package that was never published.
 - **Attribution and staleness are not stored in the file.** `project.md` is one fact per
   line precisely so `git blame` can answer both. Do not add timestamp or author syntax to
   entries — it would duplicate what git already knows and immediately drift.

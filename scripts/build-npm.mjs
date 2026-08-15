@@ -29,6 +29,15 @@ const targets = [
 
 const version = (process.argv[2] || "0.0.0-dev").replace(/^v/, "");
 
+// npm refuses to create the unscoped name `memrato-win32-arm64` in the global
+// namespace — E403 "Package name triggered spam detection", its typosquatting
+// heuristic. The darwin and linux names went through; win32 did not. Scoped
+// names live in the publisher's own namespace and are not subject to it, which
+// is why esbuild, swc and rollup all ship their platform binaries this way.
+//
+// The root package stays unscoped: it is the name people type.
+const scope = "@akhileshthakre";
+
 const shared = {
   version,
   license: "MIT",
@@ -41,10 +50,14 @@ const shared = {
 rmSync(outDir, { recursive: true, force: true });
 
 const optionalDependencies = {};
+const dirs = [];
 for (const t of targets) {
-  const name = `memrato-${t.platform}-${t.arch}`;
+  // The directory stays unscoped and flat — only the package name is scoped.
+  const dir = `memrato-${t.platform}-${t.arch}`;
+  const name = `${scope}/${dir}`;
   const exe = t.goos === "windows" ? "memrato.exe" : "memrato";
-  const pkgDir = join(outDir, name);
+  const pkgDir = join(outDir, dir);
+  dirs.push(dir);
   mkdirSync(join(pkgDir, "bin"), { recursive: true });
 
   // CGO_ENABLED=0 is what makes one linux binary work on both glibc and musl,
@@ -111,5 +124,5 @@ const tag = version.includes("-") ? " --tag next" : "";
 
 console.log(`\nBuilt ${targets.length + 1} packages at version ${version} in npm-dist/`);
 console.log("Publish platform packages first, then the root:");
-for (const name of Object.keys(optionalDependencies)) console.log(`  npm publish ./npm-dist/${name} --access public${tag}`);
+for (const dir of dirs) console.log(`  npm publish ./npm-dist/${dir} --access public${tag}`);
 console.log(`  npm publish ./npm-dist/memrato --access public${tag}`);
