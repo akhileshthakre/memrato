@@ -28,6 +28,9 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
+      # Best-effort only. The registry CDN lags a couple of minutes behind a write,
+      # so blank output here means "too early to tell", not "it failed" — check
+      # https://registry.npmjs.org/<pkg> directly if you need certainty.
       - name: Verify
         run: |
           for pkg in memrato-darwin-arm64 memrato-darwin-x64 memrato-linux-arm64 memrato-linux-x64; do
