@@ -38,6 +38,21 @@ const version = (process.argv[2] || "0.0.0-dev").replace(/^v/, "");
 // The root package stays unscoped: it is the name people type.
 const scope = "@akhileshthakre";
 
+// The root package depends on its platform packages by range rather than exact
+// version, so a docs-only release can republish the root alone and still resolve
+// binaries from the previous one instead of shipping six identical rebuilds.
+//
+// Floored at <major>.<minor>.0 and derived from the version being built — never
+// hardcoded. `^0.2.0` frozen in the source would still be asking for 0.2.x
+// binaries at v0.3.0, which is a stale binary rather than a failed install, so
+// nothing would catch it. Flooring at the exact version instead would exclude
+// the very packages the range exists to reuse.
+//
+// Prereleases pin exactly: a semver range does not match a prerelease, so
+// ^0.3.0 would fail to resolve 0.3.0-rc.1.
+const [major, minor] = version.split(".");
+const depRange = version.includes("-") ? version : `^${major}.${minor}.0`;
+
 const shared = {
   version,
   license: "MIT",
@@ -87,7 +102,7 @@ for (const t of targets) {
     ) + "\n"
   );
   copyFileSync(join(root, "LICENSE"), join(pkgDir, "LICENSE"));
-  optionalDependencies[name] = version;
+  optionalDependencies[name] = depRange;
 }
 
 // Root package: the shim plus the platform table.

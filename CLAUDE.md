@@ -78,6 +78,13 @@ To do it by hand, `make npm VERSION=vX.Y.Z` and run the commands it prints, in o
 - **Publish platform packages before the root package.** The root lists them as
   `optionalDependencies`; publishing it first leaves a window where `npm i -g memrato`
   installs a shim with no binary behind it.
+- **The root depends on its platform packages by range, not exactly.** `depRange` in
+  `build-npm.mjs` derives `^<major>.<minor>.0` from the version being built, so a
+  docs-only release can publish the root alone. Two consequences: `memrato --version`
+  reports the *binary's* version, which may lag the root package's, and a fresh install
+  of an older root resolves the newest matching binary rather than its contemporary. The
+  shim is stable enough for that to be safe; if it ever grows logic that depends on a
+  specific binary, go back to exact pins the way esbuild and rollup do.
 - **A prerelease version needs `--tag`.** npm refuses to publish anything with a `-` in
   the version (`0.0.0-dev`, `v1.0.0-rc.1`) unless a dist-tag is given, or it would move
   `latest` to a prerelease. Both `build-npm.mjs` and the release workflow derive it.
