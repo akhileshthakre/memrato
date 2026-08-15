@@ -20,6 +20,31 @@ That's it — no Go toolchain, no `PATH` setup. npm ships a prebuilt binary for 
 platform (~6 MB, and only yours) and puts `memrato` on your `PATH` where the hooks can
 find it.
 
+<details>
+<summary>What that actually pulls in</summary>
+
+`memrato` itself is a small Node shim. The binary lives in a per-platform package, and npm
+downloads only the one matching your machine:
+
+| Package | Platform |
+|---|---|
+| `@akhileshthakre/memrato-darwin-arm64` | macOS, Apple silicon |
+| `@akhileshthakre/memrato-darwin-x64` | macOS, Intel |
+| `@akhileshthakre/memrato-linux-arm64` | Linux, arm64 |
+| `@akhileshthakre/memrato-linux-x64` | Linux, x86-64 |
+| `@akhileshthakre/memrato-win32-arm64` | Windows, arm64 |
+| `@akhileshthakre/memrato-win32-x64` | Windows, x86-64 |
+
+They are `optionalDependencies` carrying `os` and `cpu` fields, so one ~6 MB package lands
+instead of all six. **Behind an npm allowlist or proxy, allow `memrato` plus the single row
+matching your platform** — the others are never requested.
+
+The names use node's spelling (`win32`, `x64`) rather than Go's, because that is what
+`process.platform` and `process.arch` return at runtime. They are scoped because npm's
+spam heuristic refuses to create the unscoped `memrato-win32-arm64`.
+
+</details>
+
 Try it without installing anything:
 
 ```bash
