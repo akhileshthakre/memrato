@@ -52,7 +52,16 @@ jobs:
             echo "::error::NPM_TOKEN secret is empty or not set on this repository."
             exit 1
           fi
-          echo "authenticated to npm as: $(npm whoami)"
+          # Not `echo "$(npm whoami)"`: command substitution swallows the exit
+          # code, so an expired token printed a blank name and passed the check,
+          # and the release then failed four steps later on a PUT that 404s
+          # rather than 401s — npm hides package existence from an unauthorized
+          # write, so the error names the package and never mentions the token.
+          if ! who=$(npm whoami); then
+            echo "::error::NPM_TOKEN is set but the registry rejected it — expired or revoked. Rotate it at npmjs.com, update the repository secret, and re-run this workflow: it skips whatever already published."
+            exit 1
+          fi
+          echo "authenticated to npm as: $who"
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
