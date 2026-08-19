@@ -1,10 +1,30 @@
 package main
 
 import (
+	"io"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
+
+// detachProbeVar turns this test binary into a stand-in for the detached
+// distiller. Under `go test` the re-exec target detach picks is the test binary
+// itself, so there is nothing else it could usefully start.
+const detachProbeVar = "MEMR_TEST_DETACH_PROBE"
+
+// TestMain records what detach handed us and exits, when it is us that detach
+// started. Renamed into place because the parent polls for the file.
+func TestMain(m *testing.M) {
+	if probe := os.Getenv(detachProbeVar); probe != "" {
+		raw, _ := io.ReadAll(os.Stdin)
+		_ = os.WriteFile(probe+".tmp", append([]byte(os.Getenv(detachEnvVar)+"\n"), raw...), 0o644)
+		_ = os.Rename(probe+".tmp", probe)
+		os.Exit(0)
+	}
+	os.Exit(m.Run())
+}
 
 func TestReadTranscriptKeepsProseDropsNoise(t *testing.T) {
 	root := t.TempDir()
@@ -149,7 +169,9 @@ func TestDistillBailsOutWhenGuardIsSet(t *testing.T) {
 }
 
 // A broken distiller must never break the user's session, and must never touch
-// project.md.
+// project.md. Every input here must also bail out before runDistill reaches
+// detach: under `go test` the re-exec target is the test binary itself, so
+// moving detach above these checks makes the suite fork copies of itself.
 func TestDistillSurvivesBadInput(t *testing.T) {
 	root := t.TempDir()
 	mkdir(t, filepath.Join(root, memDir))
@@ -177,5 +199,38 @@ func TestDistillIgnoresReposThatNeverRanInit(t *testing.T) {
 	runDistill(strings.NewReader(`{"transcript_path":"/nope","cwd":"` + root + `"}`))
 	if fileExists(filepath.Join(root, memDir, proposedFile)) {
 		t.Error("wrote proposals into a repo that never opted in")
+	}
+}
+
+// Handing the payload off and returning is the whole reason SessionEnd stopped
+// reporting `Hook cancelled`. If detach silently stops starting the child, the
+// distiller just never runs again and nothing anywhere says so.
+func TestDetachStartsAChildWithTheEnvAndTheWholePayload(t *testing.T) {
+	probe := filepath.Join(t.TempDir(), "probe")
+	t.Setenv(detachProbeVar, probe)
+
+	// Longer than a pipe buffer, so a stdin that gets copied instead of handed
+	// over straight shows up as a short read.
+	payload := `{"transcript_path":"/x","cwd":"/y","pad":"` + strings.Repeat("p", 80000) + `"}`
+	detach([]byte(payload))
+
+	var got string
+	for i := 0; got == "" && i < 500; i++ {
+		if b, err := os.ReadFile(probe); err == nil {
+			got = string(b)
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if got == "" {
+		t.Fatal("detach never started a child that could be reached")
+	}
+
+	env, arrived, _ := strings.Cut(got, "\n")
+	if env != "1" {
+		t.Errorf("child has %s=%q, so it would detach again instead of distilling", detachEnvVar, env)
+	}
+	if arrived != payload {
+		t.Errorf("child read %d bytes of payload, want %d", len(arrived), len(payload))
 	}
 }

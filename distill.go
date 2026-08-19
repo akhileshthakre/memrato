@@ -9,8 +9,10 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"strings"
+	"syscall"
 )
 
 // The single highest-leverage string in this repo. Iterate on it more than on
@@ -51,6 +53,12 @@ type proposal struct {
 // runDistill never returns an error and never exits non-zero: it runs on
 // SessionEnd, and a broken distiller must not break the user's session. It
 // also never writes to project.md — only proposed.md.
+//
+// It does the cheap checks, hands the work to a background copy of itself, and
+// returns in milliseconds. Claude Code aborts SessionEnd hooks when the session
+// is torn down — Ctrl+C — and a model call never finishes before that lands.
+// Blocking here is what surfaced as "SessionEnd hook [memrato distill] failed:
+// Hook cancelled".
 func runDistill(stdin io.Reader) {
 	defer func() { _ = recover() }()
 
@@ -60,23 +68,74 @@ func runDistill(stdin io.Reader) {
 		return
 	}
 
+	// Drained to EOF rather than stopped at the end of the JSON value: the hook
+	// now exits fast enough to EPIPE a writer still flushing into it.
+	raw, err := io.ReadAll(stdin)
+	if err != nil {
+		return
+	}
 	var payload struct {
 		TranscriptPath string `json:"transcript_path"`
 		Cwd            string `json:"cwd"`
 	}
-	if json.NewDecoder(stdin).Decode(&payload) != nil || payload.TranscriptPath == "" {
+	if json.Unmarshal(raw, &payload) != nil || payload.TranscriptPath == "" {
 		return
 	}
 	root := payload.Cwd
 	if root == "" {
 		root = "."
 	}
-	// Only distill for repos that opted in.
-	if !fileExists(filepath.Join(root, memDir, projectFile)) {
+	// Only distill for repos that opted in, and only for a transcript that is
+	// really there. Both checks are local and cheap, and doing them here is what
+	// keeps us from launching a background process with nothing to do.
+	if !fileExists(filepath.Join(root, memDir, projectFile)) || !fileExists(payload.TranscriptPath) {
 		return
 	}
 
-	transcript, err := readTranscript(payload.TranscriptPath)
+	if os.Getenv(detachEnvVar) == "" {
+		detach(raw)
+		return
+	}
+	// The background copy outlives the session that spawned it: a second Ctrl+C
+	// or a closed terminal must not take it down mid-run.
+	signal.Ignore(syscall.SIGINT, syscall.SIGHUP)
+	distill(payload.TranscriptPath, root)
+}
+
+// detach re-execs this binary with the same payload on stdin and returns
+// without waiting. The child inherits no stdout or stderr: the session is over
+// and the user's shell prompt is back, so anything it printed would land in the
+// middle of that.
+func detach(payload []byte) {
+	self, err := os.Executable()
+	if err != nil {
+		return
+	}
+	r, w, err := os.Pipe()
+	if err != nil {
+		return
+	}
+	defer r.Close()
+
+	cmd := exec.Command(self, "distill")
+	// An *os.File is handed to the child directly. Any other io.Reader is
+	// copied by a goroutine that dies with us, which would truncate the payload.
+	cmd.Stdin = r
+	cmd.Env = append(os.Environ(), detachEnvVar+"=1")
+	cmd.SysProcAttr = detachAttr()
+	if cmd.Start() != nil {
+		w.Close()
+		return
+	}
+	_, _ = w.Write(payload) // a few hundred bytes; fits the pipe buffer, never blocks
+	w.Close()
+	_ = cmd.Process.Release()
+}
+
+// distill is the slow half — read the transcript, ask the model, write the
+// proposals. Only ever reached in the detached child.
+func distill(transcriptPath, root string) {
+	transcript, err := readTranscript(transcriptPath)
 	if err != nil || len(transcript) < 200 {
 		return // too short to have learned anything
 	}

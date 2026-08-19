@@ -23,6 +23,7 @@ const (
 	defaultBudget = 4000 // tokens
 	budgetEnvVar  = "MEMR_BUDGET_TOKENS"
 	guardEnvVar   = "MEMR_DISTILLING"
+	detachEnvVar  = "MEMR_DETACHED"
 	distillModel  = "claude-haiku-4-5-20251001"
 	maxTranscript = 60000 // chars of transcript tail fed to the distiller
 )

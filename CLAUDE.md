@@ -47,6 +47,21 @@ To do it by hand, `make npm VERSION=vX.Y.Z` and run the commands it prints, in o
 - **`distill` shells out to `claude`, which fires `SessionEnd`, which runs `distill`.**
   The `MEMR_DISTILLING` env guard is the only thing stopping an unbounded fork bomb.
   Do not remove it, and set it on any new subprocess that could re-enter Claude Code.
+- **The `SessionEnd` hook must return in milliseconds.** Claude Code aborts pending hooks
+  when the session tears down — Ctrl+C — and prints `Hook cancelled`. So `distill` does
+  only the local checks, re-execs itself with `MEMR_DETACHED=1` and the same payload on a
+  pipe, and returns; the model call happens in that background copy. Four things keep that
+  child alive and quiet, and all four are load-bearing: it starts in **its own process
+  group** (`detachAttr`, the only reason `detach_unix.go`/`detach_windows.go` exist) —
+  ignoring signals is not enough, a supervisor that tears the session down by killing the
+  group takes an inherited-group child with it no matter what it ignores; it ignores
+  SIGINT/SIGHUP as well, for the second Ctrl+C and the closed terminal; it gets no stdout
+  or stderr, because the user's shell prompt is already back and anything printed lands in
+  the middle of it; and the payload reaches it over an `*os.File` pipe written and closed
+  before the parent exits, since any other `io.Reader` on `cmd.Stdin` is copied by a
+  goroutine that dies with the parent. The hook also drains stdin to EOF rather than
+  stopping at the end of the JSON value — now that it exits in milliseconds, returning
+  early enough to EPIPE the writer is another warning the user would see.
 - **Go 1.25+ is required.** The Go 1.22 linker emits binaries that will not run on current
   macOS (`missing LC_UUID load command`).
 - **`settings.json` is parsed before anything is written.** If it is malformed, `init`
